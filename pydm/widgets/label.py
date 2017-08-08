@@ -53,25 +53,25 @@ class PyDMLabel(QLabel):
       ALARM_DISCONNECTED: "PyDMLabel {}"
     },
     ALARM_TEXT: {
-      ALARM_NONE: "PyDMLabel {color: black;}",
+      ALARM_NONE: "PyDMLabel {}",
       ALARM_MINOR: "PyDMLabel {color: yellow;}",
       ALARM_MAJOR: "PyDMLabel {color: red;}",
       ALARM_INVALID: "PyDMLabel {color: purple;}",
-      ALARM_DISCONNECTED: "PyDMLabel {color: white;}"
+      ALARM_DISCONNECTED: "PyDMLabel {color: magenta;}"
     },
     ALARM_BORDER: {
       ALARM_NONE: "PyDMLabel {border-width: 2px; border-style: hidden;}",
       ALARM_MINOR: "PyDMLabel {border: 2px solid yellow;}",
       ALARM_MAJOR: "PyDMLabel {border: 2px solid red;}",
       ALARM_INVALID: "PyDMLabel {border: 2px solid purple;}",
-      ALARM_DISCONNECTED: "PyDMLabel {border: 2px solid white;}"
+      ALARM_DISCONNECTED: "PyDMLabel {border: 2px solid magenta;}"
     },
     ALARM_TEXT | ALARM_BORDER: {
-      ALARM_NONE: "PyDMLabel {color: black; border-width: 2px; border-style: hidden;}",
+      ALARM_NONE: "PyDMLabel {border-width: 2px; border-style: hidden;}",
       ALARM_MINOR: "PyDMLabel {color: yellow; border: 2px solid yellow;}",
       ALARM_MAJOR: "PyDMLabel {color: red; border: 2px solid red;}",
       ALARM_INVALID: "PyDMLabel {color: purple; border: 2px solid purple;}",
-      ALARM_DISCONNECTED: "PyDMLabel {color: white; border: 2px solid white;}"
+      ALARM_DISCONNECTED: "PyDMLabel {color: magenta; border: 2px solid magenta;}"
     }
   }
   
