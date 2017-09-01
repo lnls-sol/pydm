@@ -17,3 +17,5 @@ from pydm.widgets.spinbox_qtplugin import PyDMSpinboxplugin
 from pydm.widgets.drawing_qtplugin import * 
 from pydm.widgets.byte_qtplugin import PyDMByteIndicatorPlugin
 from pydm.widgets.symbol_qtplugin import PyDMSymbolPlugin
+
+from pydm.widgets.labelderived_qtplugin import PyDMLabelDerivedPlugin
