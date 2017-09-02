@@ -247,18 +247,21 @@ class PyDMLed(QWidget):
 		except:
 			self.current_image_path = self.default_image_path
 
+	def refresh(self):
+		if self._useImage:
+			self.updateCurrentImagePath(self.value)
+		else:
+			self.updateCurrentColor(self.value)
+		if self._showLabel:
+			self.updateCurrentLabel(self.value)
+		self.repaint()
+
 	@pyqtSlot(float)
 	@pyqtSlot(int)
 	@pyqtSlot(str)
 	def receiveValue(self, new_value):
 		self.value = new_value
-		if self._useImage:
-			self.updateCurrentImagePath(new_value)
-		else:
-			self.updateCurrentColor(new_value)
-		if self._showLabel:
-			self.updateCurrentLabel(new_value)
-		self.repaint()
+		self.refresh()
 		self.valueChanged.emit(new_value)
 
 	@pyqtSlot(bool)
