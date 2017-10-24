@@ -1,33 +1,48 @@
 import os
-import sys
 from os import path, environ
-from .PyQt.QtGui import QApplication, QMainWindow, QWidget, QToolTip, QClipboard, QFileDialog
-from .PyQt.QtCore import Qt, QTimer, pyqtSlot
+from .PyQt.QtGui import QApplication, QMainWindow, QFileDialog, QWidget
+from .PyQt.QtCore import Qt, QTimer, pyqtSlot, QSize
+from .utilities import IconFont
 from .pydm_ui import Ui_MainWindow
 import subprocess
 import platform
 
 class PyDMMainWindow(QMainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, hide_nav_bar=False):
         super(PyDMMainWindow, self).__init__(parent)
         self.app = QApplication.instance()
+        self.iconFont = IconFont()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self._display_widget = None
         self._showing_file_path_in_title_bar = False
-        self.ui.homeButton.clicked.connect(self.home)
+        self.ui.navbar.setIconSize(QSize(24,24))
+        self.ui.navbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.setMinimumWidth(300)
+        #No search bar for now, since there isn't really any capability to search yet.
+        #self.searchBar = QLineEdit(self)
+        #self.searchBar.setPlaceholderText("Search")
+        #self.searchBar.setMinimumWidth(150)
+        #self.searchAction = self.ui.navbar.insertWidget(self.ui.actionHome, self.searchBar)
+        self.ui.actionHome.triggered.connect(self.home)
+        self.ui.actionHome.setIcon(self.iconFont.icon("home"))
         self.home_file = None
         self.back_stack = []
         self.forward_stack = []
-        self.ui.backButton.clicked.connect(self.back)
-        self.ui.forwardButton.clicked.connect(self.forward)
-        self.ui.goButton.clicked.connect(self.go_button_pressed)
+        self.ui.actionBack.triggered.connect(self.back)
+        self.ui.actionBack.setIcon(self.iconFont.icon("angle-left"))
+        self.ui.actionForward.triggered.connect(self.forward)
+        self.ui.actionForward.setIcon(self.iconFont.icon("angle-right"))
+        #self.ui.goButton.clicked.connect(self.go_button_pressed)
         self.ui.actionEdit_in_Designer.triggered.connect(self.edit_in_designer)
         self.ui.actionOpen_File.triggered.connect(self.open_file_action)
         self.ui.actionReload_Display.triggered.connect(self.reload_display)
         self.ui.actionIncrease_Font_Size.triggered.connect(self.increase_font_size)
         self.ui.actionDecrease_Font_Size.triggered.connect(self.decrease_font_size)
         self.ui.actionShow_File_Path_in_Title_Bar.triggered.connect(self.toggle_file_path_in_title_bar)
+        self.ui.actionShow_Navigation_Bar.triggered.connect(self.toggle_nav_bar)
+        if hide_nav_bar:
+            self.toggle_nav_bar(False)
         self.designer_path = None
         if environ.get('QTHOME') is None:
             self.ui.actionEdit_in_Designer.setEnabled(False)
@@ -47,13 +62,13 @@ class PyDMMainWindow(QMainWindow):
         if not new_widget.layout():
             new_widget.setMinimumSize(new_widget.size())
         self._display_widget = new_widget
-        self.ui.verticalLayout.addWidget(self._display_widget)
+        self.setCentralWidget(self._display_widget)
         self.update_window_title()
         QTimer.singleShot(0, self.resizeToMinimum)
         
     def clear_display_widget(self):
         if self._display_widget is not None:
-            self.ui.verticalLayout.removeWidget(self._display_widget)
+            self.setCentralWidget(QWidget())
             self.app.close_widget_connections(self._display_widget)
             self._display_widget.deleteLater()
             self._display_widget = None
@@ -65,26 +80,28 @@ class PyDMMainWindow(QMainWindow):
         else:
             return path.join(path.dirname(self.current_file()), ui_file)
     
-    def open_file(self, ui_file, macros=None, command_line_args=[]):
+    def open_file(self, ui_file, macros=None, command_line_args=None):
         filename = self.join_to_current_file_path(ui_file)
         self.open_abs_file(filename, macros, command_line_args)
     
-    def open_abs_file(self, filename, macros=None, command_line_args=[]):
+    def open_abs_file(self, filename, macros=None, command_line_args=None):
+        if command_line_args is None:
+            command_line_args = []
         merged_macros = self.merge_with_current_macros(macros)
         widget = self.app.open_file(filename, merged_macros, command_line_args)
         if (len(self.back_stack) == 0) or (self.current_file() != filename):
             self.back_stack.append((filename, merged_macros, command_line_args))
         self.set_display_widget(widget)
-        self.ui.forwardButton.setEnabled(len(self.forward_stack) > 0)
-        self.ui.backButton.setEnabled(len(self.back_stack) > 1)
+        self.ui.actionForward.setEnabled(len(self.forward_stack) > 0)
+        self.ui.actionBack.setEnabled(len(self.back_stack) > 1)
         if self.home_file is None:
             self.home_file = (filename, merged_macros, command_line_args)
             
-    def new_window(self, ui_file, macros=None, command_line_args=[]):
+    def new_window(self, ui_file, macros=None, command_line_args=None):
         filename = self.join_to_current_file_path(ui_file)
         self.new_abs_window(filename, macros, command_line_args)
     
-    def new_abs_window(self, filename, macros=None, command_line_args=[]):
+    def new_abs_window(self, filename, macros=None, command_line_args=None):
         merged_macros = self.merge_with_current_macros(macros)
         self.app.new_window(filename, merged_macros, command_line_args)
     
@@ -105,11 +122,11 @@ class PyDMMainWindow(QMainWindow):
 
     #Note: in go(), back(), and forward(), always do history stack manipulation *before* opening the file.
     #That way, the navigation button enable/disable state will work correctly.  This is stupid, and will be fixed eventually.
-    def go(self, ui_file, macros=None, command_line_args=[]):
+    def go(self, ui_file, macros=None, command_line_args=None):
         self.forward_stack = []
         self.open_file(ui_file, macros, command_line_args)
     
-    def go_abs(self, ui_file, macros=None, command_line_args=[]):
+    def go_abs(self, ui_file, macros=None, command_line_args=None):
         self.forward_stack = []
         self.open_abs_file(filename=ui_file, macros=macros, command_line_args=command_line_args)
         
@@ -185,6 +202,10 @@ class PyDMMainWindow(QMainWindow):
     @pyqtSlot(bool)
     def toggle_file_path_in_title_bar(self, checked):
         self.showing_file_path_in_title_bar = checked
+    
+    @pyqtSlot(bool)
+    def toggle_nav_bar(self, checked):
+        self.ui.navbar.setHidden(not checked)
             
     @pyqtSlot(bool)
     def edit_in_designer(self, checked):
