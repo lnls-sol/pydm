@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>526</width>
-    <height>696</height>
+    <width>432</width>
+    <height>548</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,7 +16,7 @@
   <widget class="PyDMLed" name="PyDMLed_2">
    <property name="geometry">
     <rect>
-     <x>200</x>
+     <x>160</x>
      <y>285</y>
      <width>110</width>
      <height>60</height>
@@ -61,7 +61,7 @@
   <widget class="PyDMLed" name="PyDMLed">
    <property name="geometry">
     <rect>
-     <x>180</x>
+     <x>135</x>
      <y>55</y>
      <width>60</width>
      <height>60</height>
@@ -77,7 +77,7 @@
   <widget class="PyDMLed" name="PyDMLed_7">
    <property name="geometry">
     <rect>
-     <x>225</x>
+     <x>190</x>
      <y>170</y>
      <width>60</width>
      <height>60</height>
@@ -124,7 +124,7 @@
   <widget class="PyDMLed" name="PyDMLed_3">
    <property name="geometry">
     <rect>
-     <x>85</x>
+     <x>50</x>
      <y>445</y>
      <width>110</width>
      <height>60</height>
@@ -170,72 +170,10 @@
     <bool>false</bool>
    </property>
   </widget>
-  <widget class="PyDMLed" name="PyDMLed_4">
-   <property name="geometry">
-    <rect>
-     <x>220</x>
-     <y>600</y>
-     <width>80</width>
-     <height>80</height>
-    </rect>
-   </property>
-   <property name="toolTip">
-    <string/>
-   </property>
-   <property name="whatsThis">
-    <string/>
-   </property>
-   <property name="channel">
-    <string>ca://EX:STATUS_ENUM</string>
-   </property>
-   <property name="byte">
-    <stringlist>
-     <string>0</string>
-     <string>1</string>
-     <string>2</string>
-    </stringlist>
-   </property>
-   <property name="label">
-    <stringlist>
-     <string>yes</string>
-     <string>no</string>
-     <string>maybe</string>
-    </stringlist>
-   </property>
-   <property name="ledColor">
-    <stringlist>
-     <string>green</string>
-     <string>red</string>
-     <string>yellow</string>
-    </stringlist>
-   </property>
-   <property name="imagePath">
-    <stringlist>
-     <string>yes.png</string>
-     <string>no.png</string>
-     <string>maybe.png</string>
-    </stringlist>
-   </property>
-   <property name="showLabel">
-    <bool>false</bool>
-   </property>
-   <property name="squareLed">
-    <bool>true</bool>
-   </property>
-   <property name="useImage">
-    <bool>true</bool>
-   </property>
-   <property name="alarmSensitiveText" stdset="0">
-    <bool>false</bool>
-   </property>
-   <property name="alarmSensitiveBorder" stdset="0">
-    <bool>false</bool>
-   </property>
-  </widget>
   <widget class="PyDMLed" name="PyDMLed_5">
    <property name="geometry">
     <rect>
-     <x>345</x>
+     <x>270</x>
      <y>445</y>
      <width>110</width>
      <height>60</height>
@@ -284,40 +222,49 @@
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
-     <x>125</x>
+     <x>5</x>
      <y>25</y>
-     <width>291</width>
-     <height>19</height>
+     <width>411</width>
+     <height>20</height>
     </rect>
    </property>
    <property name="text">
     <string>Default byte (round or square led):</string>
    </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
   </widget>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>80</x>
+     <x>5</x>
      <y>135</y>
-     <width>376</width>
-     <height>19</height>
+     <width>421</width>
+     <height>20</height>
     </rect>
    </property>
    <property name="text">
     <string>Colors defined for values (bytes) 0 and 1 only:</string>
    </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
   </widget>
   <widget class="QLabel" name="label_3">
    <property name="geometry">
     <rect>
-     <x>170</x>
+     <x>5</x>
      <y>255</y>
-     <width>176</width>
-     <height>19</height>
+     <width>421</width>
+     <height>20</height>
     </rect>
    </property>
    <property name="text">
     <string>Enums are displayed:</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
    </property>
   </widget>
   <widget class="QLabel" name="label_4">
@@ -325,44 +272,37 @@
     <rect>
      <x>10</x>
      <y>410</y>
-     <width>241</width>
+     <width>211</width>
      <height>19</height>
     </rect>
    </property>
    <property name="text">
     <string>Labels may be set for values:</string>
    </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
   </widget>
   <widget class="QLabel" name="label_5">
    <property name="geometry">
     <rect>
-     <x>295</x>
+     <x>245</x>
      <y>410</y>
-     <width>201</width>
-     <height>19</height>
+     <width>171</width>
+     <height>20</height>
     </rect>
    </property>
    <property name="text">
     <string>Alarm may be displayed:</string>
    </property>
-  </widget>
-  <widget class="QLabel" name="label_6">
-   <property name="geometry">
-    <rect>
-     <x>100</x>
-     <y>560</y>
-     <width>316</width>
-     <height>19</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Instead of led, images may be loaded:</string>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
    </property>
   </widget>
   <widget class="PyDMLed" name="PyDMLed_6">
    <property name="geometry">
     <rect>
-     <x>275</x>
+     <x>230</x>
      <y>55</y>
      <width>60</width>
      <height>60</height>
