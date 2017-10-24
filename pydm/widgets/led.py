@@ -7,10 +7,6 @@ from .channel import PyDMChannel
 from ..application import PyDMApplication
 
 class PyDMLed(QWidget):
-
-	#Tell Designer what signals are available.
-	#__pyqtSignals__ = ("connected_signal()",
-    #                 "disconnected_signal()")
 	
 	connected_signal = pyqtSignal()
 	disconnected_signal = pyqtSignal()
@@ -68,10 +64,8 @@ class PyDMLed(QWidget):
 		self._byte = ['0', '1']
 		self._label = ['off', 'on']
 		self._ledColor = ['red', 'green']
-		self._imagePath = ['']
 		self._showLabel = True
 		self._squareLed = False
-		self._useImage = False
 		self._alarm_sensitive_text = True
 		self._alarm_sensitive_border = True
 		self._alarmAlarmBorderWidth = 2
@@ -80,8 +74,6 @@ class PyDMLed(QWidget):
 		self.current_label = ''
 		self.default_color = 'black'
 		self.current_color = self.default_color
-		self.default_image_path = ''
-		self.current_image_path = self.default_image_path
 		self.setFont(QFont('Arial', pointSize=14, weight=QFont.Bold))	# Default font
 		#If this label is inside a PyDMApplication (not Designer) start it in the disconnected state.
 		app = QApplication.instance()
@@ -188,29 +180,15 @@ class PyDMLed(QWidget):
 			y_shine = rady_shine + LED_BORDER + 5
 			qp.drawEllipse(QPoint(x_shine, y_shine), radx_shine, rady_shine)
 
-	def drawImage(self, qp, event):
-		if self.current_image_path == self.default_image_path:
-			pixmap = QPixmap(self.width(), self.height())
-			pixmap.fill(QColor('white'))
-		else:
-			pixmap = QPixmap(self.current_image_path)
-		qp.drawPixmap(event.rect(), pixmap)
-		# Define alarm border brush/pen
-		border_property = self.getBorderColor()
-		qp.setPen(QPen(QColor(border_property),self._alarmAlarmBorderWidth))
-		qp.setBrush(Qt.transparent)
-		# Draw alarm border
-		qp.drawRect(QRect(0, 0, self.width()-1, self.height()-1)) # Border
-
 	def paintEvent(self, event):
 		qp = QPainter()
 		qp.begin(self)
 		qp.setRenderHint(QPainter.Antialiasing)
 		qp.setPen(Qt.transparent)
-		if self._useImage:
-			self.drawImage(qp, event)
-		else:
-			self.drawLed(qp, event)
+		#if self._useImage:
+		#	self.drawImage(qp, event)
+		#else:
+		self.drawLed(qp, event)
 		if self._showLabel:
 			self.drawLabel(qp, event)
 		qp.end()
@@ -240,22 +218,12 @@ class PyDMLed(QWidget):
 		except:
 			self.current_color = self.default_color
 
-	def updateCurrentImagePath(self, new_value):
-		try:
-			byte_index = self._byte.index(str(new_value))
-			self.current_image_path = self._imagePath[byte_index]
-		except:
-			self.current_image_path = self.default_image_path
-
 	def refresh(self):
-		if self._useImage:
-			self.updateCurrentImagePath(self.value)
-		else:
-			self.updateCurrentColor(self.value)
+		self.updateCurrentColor(self.value)
 		if self._showLabel:
 			self.updateCurrentLabel(self.value)
 		self.repaint()
-
+	
 	@pyqtSlot(float)
 	@pyqtSlot(int)
 	@pyqtSlot(str)
@@ -332,18 +300,6 @@ class PyDMLed(QWidget):
 
 	ledColor = pyqtProperty("QStringList", getLedColor, setLedColor, resetLedColor)
 
-	def getImagePath(self):
-		return self._imagePath
-
-	def setImagePath(self, value):
-		if value != self._imagePath:
-			self._imagePath = value
-
-	def resetImagePath(self):
-		self._imagePath = []
-
-	imagePath = pyqtProperty("QStringList", getImagePath, setImagePath, resetImagePath)
-
 	def getShowLabel(self):
 		return self._showLabel
 
@@ -369,19 +325,6 @@ class PyDMLed(QWidget):
 
 	squareLed = pyqtProperty(bool, getSquareLed, setSquareLed, resetSquareLed)
 
-	def getUseImage(self):
-		return self._useImage
-
-	def setUseImage(self, value):
-		if value != self._useImage:
-			self._useImage = value
-			self.repaint()
-
-	def resetUseImage(self):
-		self._useImage = False
-
-	useImage = pyqtProperty(bool, getUseImage, setUseImage, resetUseImage)
-	
 	@pyqtProperty(bool, doc=
 	"""
 	Whether or not the label's text color changes when alarm severity changes.
