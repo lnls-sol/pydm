@@ -21,6 +21,7 @@ from .spinbox import PyDMSpinbox
 from .symbol import PyDMSymbol
 from .waveformtable import PyDMWaveformTable
 from .scale import PyDMScaleIndicator
+from .led import PyDMLed
 
 # Time Plot plugin
 from .timeplot_qtplugin import PyDMTimePlotPlugin
@@ -89,3 +90,6 @@ PyDMSymbolPlugin = qtplugin_factory(PyDMSymbol, group=WidgetCategory.DISPLAY)
 
 # Waveform Table plugin
 PyDMWaveformTablePlugin = qtplugin_factory(PyDMWaveformTable, group=WidgetCategory.DISPLAY)
+
+# Led plugin
+PyDMLedPlugin = qtplugin_factory(PyDMLed, group=WidgetCategory.DISPLAY)
