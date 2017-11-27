@@ -1,80 +1,44 @@
 from ..PyQt.QtGui import QColor
-from ..PyQt.QtCore import pyqtSlot, pyqtProperty
+from ..PyQt.QtCore import pyqtSlot, pyqtProperty, Qt
 import numpy as np
+import json
+import itertools
+from collections import OrderedDict
 from .baseplot import BasePlot, NoDataError, BasePlotCurveItem
 from .channel import PyDMChannel
-import itertools
-import json
-from collections import OrderedDict
 from ..utilities import remove_protocol
 
 
-class WaveformCurveItem(BasePlotCurveItem):
-    """
-    WaveformCurveItem represents a single curve in a waveform plot.
+class ScatterPlotCurveItem(BasePlotCurveItem):
 
-    It can be used to plot one waveform vs. its indices, or one waveform
-    vs. another.  In addition to the parameters listed below,
-    WaveformCurveItem accepts keyword arguments for all plot options that
-    pyqtgraph.PlotDataItem accepts.
-
-    Parameters
-    ----------
-    y_addr : str, optional
-        The address to waveform data for the Y axis.
-        Curves must have Y data to plot.
-    x_addr : str, optional
-        The address to waveform data for the X axis.
-        If None, the curve will plot Y data vs. the Y index.
-    color : QColor, optional
-        The color used to draw the curve line and the symbols.
-    lineStyle: int, optional
-        Style of the line connecting the data points.
-        Must be a value from the Qt::PenStyle enum
-        (see http://doc.qt.io/qt-5/qt.html#PenStyle-enum).
-    lineWidth: int, optional
-        Width of the line connecting the data points.
-    redraw_mode: int, optional
-        Must be one four values:
-        WaveformCurveItem.REDRAW_ON_EITHER: (Default)
-            Redraw after either X or Y receives new data.
-        WaveformCurveItem.REDRAW_ON_X:
-            Redraw after X receives new data.
-        WaveformCurveItem.REDRAW_ON_Y:
-            Redraw after Y receives new data.
-        WaveformCurveItem.REDRAW_ON_BOTH:
-            Redraw after both X and Y receive new data.
-    **kargs: optional
-        PlotDataItem keyword arguments, such as symbol and symbolSize.
-    """
-
-    def __init__(self, y_addr=None, x_addr=None, redraw_mode=None, **kws):
-        y_addr = "" if y_addr is None else y_addr
-        if kws.get('name') is None:
-            y_name = remove_protocol(y_addr)
-            if x_addr is None:
-                plot_name = y_name
-            else:
-                x_name = remove_protocol(x_addr)
-                plot_name = "{y} vs. {x}".format(y=y_name, x=x_name)
-            kws['name'] = plot_name
-        self.redraw_mode = (redraw_mode if redraw_mode is not None
-                            else self.REDRAW_ON_EITHER)
-        self.needs_new_x = True
-        self.needs_new_y = True
+    def __init__(self, y_addr, x_addr, redraw_mode=None, **kws):
         self.x_channel = None
         self.y_channel = None
         self.x_address = x_addr
         self.y_address = y_addr
-        #The data in x_waveform and y_waveform are what actually get plotted.
-        self.x_waveform = None
-        self.y_waveform = None
-        # Whenever the channels update, they immediately send latest_x and latest_y.
-        # After each update, we check if we are ready to overwrite x_waveform and
-        # y_waveform with the latest values, based on the redraw mode.
-        self.latest_x = None
-        self.latest_y = None
-        super(WaveformCurveItem, self).__init__(**kws)
+        self.x_connected = False
+        self.y_connected = False
+        # If a name wasn't specified, use the addresses to make one.
+        if kws.get('name') is None:
+            if y_addr is None and x_addr is None:
+                kws['name'] = ""
+            else:
+                y_name = remove_protocol(y_addr if y_addr is not None else "")
+                x_name = remove_protocol(x_addr if x_addr is not None else "")
+                kws['name'] = "{y} vs. {x}".format(y=y_name, x=x_name)
+        self.redraw_mode = (redraw_mode if redraw_mode is not None
+                            else self.REDRAW_ON_EITHER)
+        self._bufferSize = 1200
+        self.data_buffer = np.zeros((2, self._bufferSize),
+                                    order='f', dtype=float)
+        self.points_accumulated = 0
+        self.latest_x_value = None
+        self.latest_y_value = None
+        if 'symbol' not in kws.keys():
+            kws['symbol'] = 'o'
+        if 'lineStyle' not in kws.keys():
+            kws['lineStyle'] = Qt.NoPen
+        super(ScatterPlotCurveItem, self).__init__(**kws)
 
     def to_dict(self):
         """
@@ -87,14 +51,15 @@ class WaveformCurveItem(BasePlotCurveItem):
         """
         dic_ = OrderedDict([("y_channel", self.y_address),
                             ("x_channel", self.x_address)])
-        dic_.update(super(WaveformCurveItem, self).to_dict())
+        dic_.update(super(ScatterPlotCurveItem, self).to_dict())
         dic_["redraw_mode"] = self.redraw_mode
+        dic_['buffer_size'] = self.getBufferSize()
         return dic_
 
     @property
     def x_address(self):
         """
-        The address of the channel used to get the x axis waveform data.
+        The address of the channel used to get the x axis data.
 
         Returns
         -------
@@ -107,7 +72,7 @@ class WaveformCurveItem(BasePlotCurveItem):
     @x_address.setter
     def x_address(self, new_address):
         """
-        The address of the channel used to get the x axis waveform data.
+        The address of the channel used to get the x axis data.
 
         Parameters
         -------
@@ -119,12 +84,12 @@ class WaveformCurveItem(BasePlotCurveItem):
         self.x_channel = PyDMChannel(
                             address=new_address,
                             connection_slot=self.xConnectionStateChanged,
-                            value_slot=self.receiveXWaveform)
+                            value_slot=self.receiveXValue)
 
     @property
     def y_address(self):
         """
-        The address of the channel used to get the y axis waveform data.
+        The address of the channel used to get the y axis data.
 
         Returns
         -------
@@ -137,10 +102,10 @@ class WaveformCurveItem(BasePlotCurveItem):
     @y_address.setter
     def y_address(self, new_address):
         """
-        The address of the channel used to get the y axis waveform data.
+        The address of the channel used to get the y axis data.
 
         Parameters
-        -------
+        ----------
         new_address: str
         """
         if new_address is None or len(str(new_address)) < 1:
@@ -149,82 +114,101 @@ class WaveformCurveItem(BasePlotCurveItem):
         self.y_channel = PyDMChannel(
                             address=new_address,
                             connection_slot=self.yConnectionStateChanged,
-                            value_slot=self.receiveYWaveform)
-
-    def update_waveforms_if_ready(self):
-        """
-        This is called whenever new waveform data is received for X or Y.
-        Based on the value of the redraw_mode attribute, it decides whether
-        the data_changed signal will be emitted.  The data_changed signal
-        is used by the plot that owns this curve to request a redraw.
-        """
-        if self.redraw_mode == WaveformCurveItem.REDRAW_ON_EITHER:
-            self.x_waveform = self.latest_x
-            self.y_waveform = self.latest_y
-        elif self.redraw_mode == WaveformCurveItem.REDRAW_ON_X:
-            if not self.needs_new_x:
-                self.x_waveform = self.latest_x
-                self.y_waveform = self.latest_y
-        elif self.redraw_mode == WaveformCurveItem.REDRAW_ON_Y:
-            if not self.needs_new_y:
-                self.x_waveform = self.latest_x
-                self.y_waveform = self.latest_y
-        elif self.redraw_mode == WaveformCurveItem.REDRAW_ON_BOTH:
-            if not (self.needs_new_y or self.needs_new_x):
-                self.x_waveform = self.latest_x
-                self.y_waveform = self.latest_y
+                            value_slot=self.receiveYValue)
 
     @pyqtSlot(bool)
     def xConnectionStateChanged(self, connected):
-        pass
+        self.x_connected = connected
 
     @pyqtSlot(bool)
     def yConnectionStateChanged(self, connected):
-        pass
+        self.y_connected = connected
 
-    @pyqtSlot(np.ndarray)
-    def receiveXWaveform(self, new_waveform):
+    @pyqtSlot(int)
+    @pyqtSlot(float)
+    def receiveXValue(self, new_x):
         """
-        Handler for new x waveform data.
+        Handler for new x data.
         """
-        if new_waveform is None:
+        if new_x is None:
             return
-        self.latest_x = new_waveform
+        self.latest_x_value = new_x
         self.needs_new_x = False
-        # Don't redraw unless we already have Y data.
-        if self.latest_y is not None:
-            self.update_waveforms_if_ready()
+        self.update_buffer()
 
-    @pyqtSlot(np.ndarray)
-    def receiveYWaveform(self, new_waveform):
+    @pyqtSlot(int)
+    @pyqtSlot(float)
+    def receiveYValue(self, new_y):
         """
-        Handler for new y waveform data.
+        Handler for new y data.
         """
-        if new_waveform is None:
+        if new_y is None:
             return
-        self.latest_y = new_waveform
+        self.latest_y_value = new_y
         self.needs_new_y = False
-        if self.x_channel is None or self.x_waveform is not None:
-            self.update_waveforms_if_ready()
+        self.update_buffer()
+
+    def update_buffer(self):
+        """
+        This is called whenever new data is received for X or Y.
+        Based on the value of the redraw_mode attribute, it decides whether
+        we are ready to shift the data buffer by one and add the latest data.
+        """
+        # If we haven't gotten values for X and Y yet, can't redraw.
+        if self.latest_y_value is None or self.latest_x_value is None:
+            return
+
+        if self.redraw_mode == self.REDRAW_ON_EITHER:
+            # no matter which channel updates, add a pair with the two most
+            # recent values
+            pass
+        elif self.redraw_mode == self.REDRAW_ON_X:
+            # If we only redraw when X updates, make sure new X data has
+            # arrived since the last time we drew the plot.
+            if self.needs_new_x:
+                return
+        elif self.redraw_mode == self.REDRAW_ON_Y:
+            # If we only redraw when Y updates, make sure new Y data has
+            # arrived since the last time we drew the plot.
+            if self.needs_new_y:
+                return
+        elif self.redraw_mode == self.REDRAW_ON_BOTH:
+            # Make sure both X and Y have received new data since the last
+            # time we drew the plot.
+            if self.needs_new_y or self.needs_new_x:
+                return
+        # If you get this far, we are OK to add the latest data to the buffer.
+        self.data_buffer = np.roll(self.data_buffer, -1)
+        self.data_buffer[0, -1] = self.latest_x_value
+        self.data_buffer[1, -1] = self.latest_y_value
+        if self.points_accumulated < self._bufferSize:
+            self.points_accumulated = self.points_accumulated + 1
+
+    def initialize_buffer(self):
+        self.points_accumulated = 0
+        self.data_buffer = np.zeros((2, self._bufferSize),
+                                    order='f', dtype=float)
+
+    def getBufferSize(self):
+        return int(self._bufferSize)
+
+    def setBufferSize(self, value):
+        if self._bufferSize != int(value):
+            self._bufferSize = max(int(value), 1)
+            self.initialize_buffer()
+
+    def resetBufferSize(self):
+        if self._bufferSize != 1200:
+            self._bufferSize = 1200
+            self.initialize_buffer()
 
     def redrawCurve(self):
         """
         Called by the curve's parent plot whenever the curve needs to be
         re-drawn with new data.
         """
-        # We try to be nice: if the X waveform doesn't have the same number
-        # of points as the Y waveform, we'll truncate whichever was
-        # longer so that they are both the same size.
-        if self.y_waveform is None:
-            return
-        if self.x_waveform is None:
-            self.setData(y=self.y_waveform)
-            return
-        if self.x_waveform.shape[0] > self.y_waveform.shape[0]:
-            self.x_waveform = self.x_waveform[:self.y_waveform.shape[0]]
-        elif self.x_waveform.shape[0] < self.y_waveform.shape[0]:
-            self.y_waveform = self.y_waveform[:self.x_waveform.shape[0]]
-        self.setData(x=self.x_waveform, y=self.y_waveform)
+        self.setData(x=self.data_buffer[1, -self.points_accumulated:],
+                     y=self.data_buffer[0, -self.points_accumulated:])
         self.needs_new_x = True
         self.needs_new_y = True
 
@@ -237,25 +221,20 @@ class WaveformCurveItem(BasePlotCurveItem):
         -------
         tuple
         """
-        if self.y_waveform is None:
-            raise NoDataError("Curve has no Y data, cannot determine limits.")
-        if self.x_waveform is None:
-            yspan = (float(np.amax(self.y_waveform)) -
-                     float(np.amin(self.y_waveform)))
-            return ((0, len(self.y_waveform)),
-                    (float(np.amin(self.y_waveform) - yspan),
-                     float(np.amax(self.y_waveform) + yspan)))
-        else:
-            return ((np.amin(self.x_waveform), np.amax(self.x_waveform)),
-                    (np.amin(self.y_waveform), np.amax(self.y_waveform)))
+        if self.points_accumulated == 0:
+            raise NoDataError("Curve has no data, cannot determine limits.")
+        x_data = self.data_buffer[0, -self.points_accumulated:]
+        y_data = self.data_buffer[1, -self.points_accumulated:]
+        return ((np.amin(x_data), np.amax(x_data)),
+                (np.amin(y_data), np.amax(y_data)))
 
 
-class PyDMWaveformPlot(BasePlot):
+class PyDMScatterPlot(BasePlot):
     """
-    PyDMWaveformPlot is a widget to plot one or more waveforms.
-
-    Each curve can plot either a Y-axis waveform vs. its indices,
-    or a Y-axis waveform against an X-axis waveform.
+    PyDMScatterPlot is a widget to plot one scalar value against another.
+    Multiple scalar pairs can be plotted on the same plot.  Each pair has
+    a buffer which stores previous values.  All values in the buffer are
+    drawn.  The buffer size for each pair is user configurable.
 
     Parameters
     ----------
@@ -265,7 +244,7 @@ class PyDMWaveformPlot(BasePlot):
         init_x_channels can be a string with the address for a channel,
         or a list of strings, each containing an address for a channel.
         If not specified, y-axis waveforms will be plotted against their
-        indices. If a list is specified for both init_x_channels and
+        indices.  If a list is specified for both init_x_channels and
         init_y_channels, they both must have the same length.
         If a single x channel was specified, and a list of y channels are
         specified, all y channels will be plotted against the same x channel.
@@ -277,13 +256,12 @@ class PyDMWaveformPlot(BasePlot):
         If a single x channel was specified, and a list of y channels are
         specified, all y channels will be plotted against the same x channel.
     background: optional
-        The background color for the plot.  Accepts any arguments that
+        The background color for the plot. Accepts any arguments that
         pyqtgraph.mkColor will accept.
     """
-
     def __init__(self, parent=None, init_x_channels=[], init_y_channels=[],
                  background='default'):
-        super(PyDMWaveformPlot, self).__init__(parent, background)
+        super(PyDMScatterPlot, self).__init__(parent, background)
         # If the user supplies a single string instead of a list,
         # wrap it in a list.
         if isinstance(init_x_channels, str):
@@ -297,7 +275,7 @@ class PyDMWaveformPlot(BasePlot):
             raise ValueError("If lists are provided for both X and Y " +
                              "channels, they must be the same length.")
         # self.channel_pairs is an ordered dictionary that is keyed on a
-        # (x_channel, y_channel) tuple, with WaveformCurveItem values.
+        # (x_channel, y_channel) tuple, with ScatterPlotCurveItem values.
         # It gets populated in self.addChannel().
         self.channel_pairs = OrderedDict()
         init_channel_pairs = zip(init_x_channels, init_y_channels)
@@ -311,7 +289,8 @@ class PyDMWaveformPlot(BasePlot):
 
     def addChannel(self, y_channel=None, x_channel=None, name=None,
                    color=None, lineStyle=None, lineWidth=None,
-                   symbol=None, symbolSize=None, redraw_mode=None):
+                   symbol=None, symbolSize=None, redraw_mode=None,
+                   buffer_size=None):
         """
         Add a new curve to the plot.  In addition to the arguments below,
         all other keyword arguments are passed to the underlying
@@ -335,14 +314,16 @@ class PyDMWaveformPlot(BasePlot):
             Width of the line connecting the data points.
         redraw_mode: int, optional
             Must be one four values:
-            WaveformCurveItem.REDRAW_ON_EITHER: (Default)
+            ScatterPlotCurveItem.REDRAW_ON_EITHER: (Default)
                 Redraw after either X or Y receives new data.
-            WaveformCurveItem.REDRAW_ON_X:
+            ScatterPlotCurveItem.REDRAW_ON_X:
                 Redraw after X receives new data.
-            WaveformCurveItem.REDRAW_ON_Y:
+            ScatterPlotCurveItem.REDRAW_ON_Y:
                 Redraw after Y receives new data.
-            WaveformCurveItem.REDRAW_ON_BOTH:
+            ScatterPlotCurveItem.REDRAW_ON_BOTH:
                 Redraw after both X and Y receive new data.
+        buffer_size: int, optional
+            number of points to keep in the buffer.
         symbol: str or None, optional
             Which symbol to use to represent the data.
         symbol: int, optional
@@ -358,11 +339,13 @@ class PyDMWaveformPlot(BasePlot):
             plot_opts['lineWidth'] = lineWidth
         if redraw_mode is not None:
             plot_opts['redraw_mode'] = redraw_mode
-        curve = WaveformCurveItem(y_addr=y_channel,
-                                  x_addr=x_channel,
-                                  name=name,
-                                  color=color,
-                                  **plot_opts)
+        curve = ScatterPlotCurveItem(y_addr=y_channel,
+                                     x_addr=x_channel,
+                                     name=name,
+                                     color=color,
+                                     **plot_opts)
+        if buffer_size is not None:
+            curve.setBufferSize(buffer_size)
         self.channel_pairs[(y_channel, x_channel)] = curve
         self.addCurve(curve, curve_color=color)
 
@@ -372,7 +355,7 @@ class PyDMWaveformPlot(BasePlot):
 
         Parameters
         ----------
-        curve: WaveformCurveItem
+        curve: ScatterPlotCurveItem
             The curve to remove.
         """
         self.removeCurve(curve)
@@ -430,7 +413,7 @@ class PyDMWaveformPlot(BasePlot):
         """
         Remove all curves from the plot.
         """
-        super(PyDMWaveformPlot, self).clear()
+        super(PyDMScatterPlot, self).clear()
 
     def getCurves(self):
         """
@@ -466,7 +449,8 @@ class PyDMWaveformPlot(BasePlot):
                             lineWidth=d.get('lineWidth'),
                             symbol=d.get('symbol'),
                             symbolSize=d.get('symbolSize'),
-                            redraw_mode=d.get('redraw_mode'))
+                            redraw_mode=d.get('redraw_mode'),
+                            buffer_size=d.get('buffer_size'))
 
     curves = pyqtProperty("QStringList", getCurves, setCurves)
 
@@ -480,14 +464,13 @@ class PyDMWaveformPlot(BasePlot):
         """
         chans = []
         chans.extend([curve.y_channel for curve in self._curves])
-        chans.extend([curve.x_channel for curve in self._curves
-                     if curve.x_channel is not None])
+        chans.extend([curve.x_channel for curve in self._curves])
         return chans
 
     # The methods for autoRangeX, minXRange, maxXRange, autoRangeY, minYRange,
     # and maxYRange are all defined in BasePlot, but we don't expose them as
-    # properties there, because not all plot subclasses necessarily want them
-    # to be user-configurable in Designer.
+    # properties there, because not all plot subclasses necessarily want
+    # them to be user-configurable in Designer.
     autoRangeX = pyqtProperty(bool, BasePlot.getAutoRangeX,
                               BasePlot.setAutoRangeX, BasePlot.resetAutoRangeX,
                               doc="""

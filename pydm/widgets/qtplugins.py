@@ -1,4 +1,5 @@
 from .qtplugin_base import qtplugin_factory, WidgetCategory
+from .baseplot_qtplugin import qtplugin_plot_factory
 
 from .byte import PyDMByteIndicator
 
@@ -21,13 +22,25 @@ from .spinbox import PyDMSpinbox
 from .symbol import PyDMSymbol
 from .waveformtable import PyDMWaveformTable
 from .scale import PyDMScaleIndicator
+from .timeplot import PyDMTimePlot
+from .timeplot_curve_editor import TimePlotCurveEditorDialog
+from .waveformplot import PyDMWaveformPlot
+from .waveformplot_curve_editor import WaveformPlotCurveEditorDialog
+from .scatterplot import PyDMScatterPlot
+from .scatterplot_curve_editor import ScatterPlotCurveEditorDialog
 from .led import PyDMLed
 
 # Time Plot plugin
-from .timeplot_qtplugin import PyDMTimePlotPlugin
+PyDMTimePlotPlugin = qtplugin_plot_factory(
+                            PyDMTimePlot, TimePlotCurveEditorDialog)
 
 # Waveform Plot plugin
-from .waveformplot_qtplugin import PyDMWaveformPlotPlugin
+PyDMWaveformPlotPlugin = qtplugin_plot_factory(
+                            PyDMWaveformPlot, WaveformPlotCurveEditorDialog)
+
+# Scatter Plot plugin
+PyDMScatterPlotPlugin = qtplugin_plot_factory(
+                            PyDMScatterPlot, ScatterPlotCurveEditorDialog)
 
 # Byte plugin
 PyDMByteIndicatorPlugin = qtplugin_factory(PyDMByteIndicator, group=WidgetCategory.DISPLAY)
